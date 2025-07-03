@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时语音转文字 DEMO - 优化版</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .control-panel {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        .status.connected { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.disconnected { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status.recording { 
+            background: #fff3cd; 
+            color: #856404; 
+            border: 1px solid #ffeeba;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .audio-info {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        .audio-level {
+            width: 100%;
+            height: 15px;
+            background: #e9ecef;
+            border-radius: 8px;
+            margin: 10px 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .audio-level-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+
+        .audio-level-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .transcription-area {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            min-height: 250px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .transcription-text {
+            font-size: 16px;
+            line-height: 1.8;
+        }
+
+        .real-time-text { 
+            color: #007bff; 
+            font-style: italic; 
+            background: #e3f2fd;
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin: 5px 0;
+            display: block;
+        }
+        .final-text { 
+            color: #333; 
+            font-weight: 500; 
+            margin: 5px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .server-response-area {
+            background: #f1f3f5;
+            border: 2px solid #dee2e6;
+            border-radius: 15px;
+            padding: 20px;
+            min-height: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .response-item {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 8px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .response-timestamp {
+            color: #666;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .response-content {
+            color: #333;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .debug-info {
+            background: #f1f3f5;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin: 20px 0 10px 0;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 实时语音转文字 DEMO - 优化版</h1>
+        
+        <div class="control-panel">
+            <button id="connectBtn">连接服务</button>
+            <button id="startBtn" disabled>开始录音</button>
+            <button id="stopBtn" disabled>停止录音</button>
+            <button id="clearBtn">清空所有内容</button>
+        </div>
+
+        <div id="status" class="status disconnected">未连接</div>
+        
+        <div id="audioInfo" class="audio-info">
+            音频配置：采样率 16KHz | 采样精度 16bit | 单声道 | PCM格式 | 数据分片 1280字节/40ms
+        </div>
+        
+        <div class="audio-level">
+            <div id="audioLevelBar" class="audio-level-bar"></div>
+            <div id="audioLevelText" class="audio-level-text">音量: 0%</div>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+
+        <div class="section-title">📝 语音识别结果</div>
+        <div class="transcription-area">
+            <div id="transcriptionText" class="transcription-text">
+                等待开始语音识别...
+            </div>
+        </div>
+
+        <div class="section-title">📡 服务端完整响应</div>
+        <div class="server-response-area">
+            <div id="serverResponses">
+                等待服务端响应...
+            </div>
+        </div>
+
+        <div class="section-title">🔧 系统诊断信息</div>
+        <div id="debugInfo" class="debug-info">
+            诊断信息将在此处显示...
+        </div>
+    </div>
+
+    <script>
+    class AudioRecorder {
+        constructor(options = {}) {
+            // 日志方法优先定义
+            this.log = this.log.bind(this);
+            this.showError = this.showError.bind(this);
+            this.handleError = this.handleError.bind(this);
+
+            // 严格按照科大讯飞规范设置音频参数
+            this.sampleRate = 16000;        // 固定16KHz
+            this.bitDepth = 16;             // 固定16bit
+            this.channelCount = 1;          // 固定单声道
+            this.frameSize = 1280;          // 每次发送1280字节
+            this.frameInterval = 40;        // 每40ms发送一次
+            
+            // 音频处理相关
+            this.audioContext = null;
+            this.mediaStream = null;
+            this.mediaStreamSource = null;
+            this.processor = null;
+            this.analyser = null;
+
+            // WebSocket
+            this.websocket = null;
+            this.wsUrl = options.wsUrl || 'ws://localhost:8080/ws/transcribe';
+
+            // 状态标志
+            this.isRecording = false;
+            this.isWebSocketConnected = false;
+
+            // 音频缓冲区管理
+            this.audioBuffer = [];
+            this.bufferSize = 4096;
+            this.sendTimer = null;
+
+            // 音频质量监控
+            this.audioStats = {
+                totalFramesSent: 0,
+                totalBytesSent: 0,
+                avgVolumeLevel: 0,
+                lastSendTime: 0
+            };
+
+            // 初始化
+            this.initElements();
+            this.bindEvents();
+            
+            // 使用箭头函数确保this正确绑定
+            setTimeout(() => {
+                this.log('🚀 音频录制器初始化完成');
+                this.log(`📊 音频配置: ${this.sampleRate}Hz, ${this.bitDepth}bit, ${this.channelCount}声道`);
+            }, 0);
+        }
+
+        log(...args) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : arg
+            ).join(' ');
+            
+            const fullLogMessage = `[${timestamp}] ${logMessage}`;
+            
+            // 控制台日志
+            console.log(fullLogMessage);
+            
+            // UI日志
+            try {
+                const logLine = document.createElement('div');
+                logLine.textContent = fullLogMessage;
+                
+                // 确保debugInfo元素存在
+                const debugInfoElement = document.getElementById('debugInfo');
+                if (debugInfoElement) {
+                    debugInfoElement.appendChild(logLine);
+                    debugInfoElement.scrollTop = debugInfoElement.scrollHeight;
+                }
+            } catch (error) {
+                console.error('日志记录失败', error);
+            }
+        }
+
+        // 错误处理方法
+        showError(message) {
+            console.error(message);
+            try {
+                const errorContainer = document.getElementById('errorMessage');
+                if (errorContainer) {
+                    errorContainer.textContent = message;
+                    errorContainer.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        errorContainer.style.display = 'none';
+                    }, 3000);
+                }
+            } catch (error) {
+                console.error('显示错误失败', error);
+            }
+        }
+
+        handleError(error) {
+            this.log('❌ 发生错误', error);
+            this.showError(error.message || '未知错误');
+        }
+
+        initElements() {
+            try {
+                this.connectBtn = document.getElementById('connectBtn');
+                this.startBtn = document.getElementById('startBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+
+                this.status = document.getElementById('status');
+                this.audioLevelBar = document.getElementById('audioLevelBar');
+                this.audioLevelText = document.getElementById('audioLevelText');
+                this.debugInfo = document.getElementById('debugInfo');
+                this.transcriptionText = document.getElementById('transcriptionText');
+                this.serverResponses = document.getElementById('serverResponses');
+                this.errorMessage = document.getElementById('errorMessage');
+
+                this.stopBtn.disabled = true;
+            } catch (error) {
+                console.error('初始化元素失败', error);
+            }
+        }
+
+        bindEvents() {
+            // 使用箭头函数确保this正确绑定
+            this.connectBtn.addEventListener('click', () => this.connectWebSocket());
+            this.startBtn.addEventListener('click', () => this.start());
+            this.stopBtn.addEventListener('click', () => this.stop());
+            this.clearBtn.addEventListener('click', () => this.clearAll());
+        }
+
+        async connectWebSocket() {
+            try {
+                this.log('🔗 正在连接WebSocket服务...');
+                this.websocket = new WebSocket(this.wsUrl);
+
+                this.websocket.onopen = () => {
+                    this.isWebSocketConnected = true;
+                    this.log('✅ WebSocket连接成功');
+                    this.status.textContent = '已连接 - 准备就绪';
+                    this.status.className = 'status connected';
+                    
+                    this.startBtn.disabled = false;
+                    this.connectBtn.disabled = true;
+                };
+
+                this.websocket.onmessage = (event) => {
+                    this.handleServerResponse(event.data);
+                };
+
+                this.websocket.onclose = (event) => {
+                    this.isWebSocketConnected = false;
+                    this.log(`❌ WebSocket连接关闭 - Code: ${event.code}, Reason: ${event.reason}`);
+                    this.status.textContent = '连接已断开';
+                    this.status.className = 'status disconnected';
+                    
+                    this.startBtn.disabled = true;
+                    this.stopBtn.disabled = true;
+                    this.connectBtn.disabled = false;
+                };
+
+                this.websocket.onerror = (error) => {
+                    this.log('❌ WebSocket连接错误', error);
+                    this.showError('WebSocket连接失败，请检查服务器状态');
+                };
+
+            } catch (error) {
+                this.log('❌ WebSocket初始化失败', error);
+                this.showError('连接失败：' + error.message);
+            }
+        }
+
+        async start() {
+            try {
+                if (!this.isWebSocketConnected) {
+                    throw new Error('请先连接WebSocket服务');
+                }
+
+                this.log('🎤 开始初始化音频设备...');
+
+                // 请求麦克风权限，严格按照科大讯飞规范
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: false,      // 关闭回声消除
+                        autoGainControl: false,       // 关闭自动增益
+                        noiseSuppression: false,      // 关闭噪声抑制
+                        sampleRate: this.sampleRate,  // 16KHz
+                        channelCount: this.channelCount, // 单声道
+                        sampleSize: this.bitDepth     // 16bit
+                    }
+                });
+
+                this.mediaStream = stream;
+
+                // 创建音频上下文，确保采样率正确
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: this.sampleRate
+                });
+
+                // 验证音频上下文的采样率
+                if (this.audioContext.sampleRate !== this.sampleRate) {
+                    this.log(`⚠️ 音频上下文采样率不匹配: 期望${this.sampleRate}Hz, 实际${this.audioContext.sampleRate}Hz`);
+                }
+
+                // 创建音频源
+                this.mediaStreamSource = this.audioContext.createMediaStreamSource(stream);
+
+                // 创建分析器用于音量监控
+                this.analyser = this.audioContext.createAnalyser();
+                this.analyser.fftSize = 2048;
+
+                // 创建音频处理节点
+                this.processor = this.audioContext.createScriptProcessor(
+                    this.bufferSize, 
+                    this.channelCount, 
+                    this.channelCount
+                );
+
+                // 绑定音频处理
+                                this.processor.onaudioprocess = this.processAudioData.bind(this);
+
+                // 连接音频处理链
+                this.mediaStreamSource.connect(this.analyser);
+                this.analyser.connect(this.processor);
+                this.processor.connect(this.audioContext.destination);
+
+                // 启动定时音频发送机制
+                this.startAudioSendTimer();
+
+                // 更新UI状态
+                this.isRecording = true;
+                this.startBtn.disabled = true;
+                this.stopBtn.disabled = false;
+                this.status.textContent = '录音中';
+                this.status.className = 'status recording';
+
+                this.log('🎤 开始录音，严格按照科大讯飞语音标准');
+
+            } catch (error) {
+                this.log('❌ 录音初始化失败', error);
+                this.handleError(error);
+            }
+        }
+
+        processAudioData(event) {
+            if (!this.isRecording) return;
+
+            const inputBuffer = event.inputBuffer;
+            const inputData = inputBuffer.getChannelData(0);
+
+            // 更新音量显示
+            this.updateAudioLevelDisplay(inputData);
+
+            // 缓存音频数据
+            this.audioBuffer.push(...inputData);
+        }
+
+        startAudioSendTimer() {
+            // 按科大讯飞规范，每40ms发送1280字节数据
+            this.sendTimer = setInterval(() => {
+                if (this.audioBuffer.length >= this.frameSize / 2) {
+                    const audioChunk = this.audioBuffer.slice(0, this.frameSize / 2);
+                    this.audioBuffer = this.audioBuffer.slice(this.frameSize / 2);
+
+                    const pcmData = this.convertToPCM16(audioChunk);
+                    this.sendAudioData(pcmData);
+                }
+            }, this.frameInterval);
+        }
+
+        updateAudioLevelDisplay(inputData) {
+            // 计算RMS音量
+            const rms = Math.sqrt(
+                inputData.reduce((sum, val) => sum + val * val, 0) / inputData.length
+            );
+
+            // 映射到0-100的音量级别
+            const volumeLevel = Math.min(100, Math.floor(rms * 200));
+
+            // 更新音量条和文字
+            this.audioLevelBar.style.width = `${volumeLevel}%`;
+            this.audioLevelText.textContent = `音量: ${volumeLevel}%`;
+        }
+
+        convertToPCM16(float32Array) {
+            const buffer = new ArrayBuffer(float32Array.length * 2);
+            const view = new DataView(buffer);
+            
+            for (let i = 0; i < float32Array.length; i++) {
+                // 标准化并转换为16位整数
+                const s = Math.max(-1, Math.min(1, float32Array[i]));
+                view.setInt16(
+                    i * 2, 
+                    s < 0 ? s * 0x8000 : s * 0x7FFF, 
+                    true  // 小端序，符合科大讯飞标准
+                );
+            }
+            
+            return buffer;
+        }
+
+        sendAudioData(pcmData) {
+            try {
+                if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                    this.websocket.send(pcmData);
+
+                    // 更新音频统计
+                    this.audioStats.totalFramesSent++;
+                    this.audioStats.totalBytesSent += pcmData.byteLength;
+                    this.audioStats.lastSendTime = Date.now();
+                }
+            } catch (error) {
+                this.log('❌ 音频数据发送失败', error);
+            }
+        }
+
+        stop() {
+            // 停止录音和资源释放
+            this.isRecording = false;
+            
+            // 停止音频处理定时器
+            if (this.sendTimer) {
+                clearInterval(this.sendTimer);
+            }
+
+            // 发送结束信号
+            if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+                this.websocket.send('END_STREAM');
+            }
+
+            // 清理音频资源
+            if (this.processor) {
+                this.processor.disconnect();
+            }
+            
+            if (this.mediaStreamSource) {
+                this.mediaStreamSource.disconnect();
+            }
+
+            if (this.mediaStream) {
+                this.mediaStream.getTracks().forEach(track => track.stop());
+            }
+
+            // 重置UI
+            this.startBtn.disabled = false;
+            this.stopBtn.disabled = true;
+            this.status.textContent = '已连接';
+            this.status.className = 'status connected';
+            this.audioLevelBar.style.width = '0%';
+            this.audioLevelText.textContent = '音量: 0%';
+
+            // 记录音频统计信息
+            this.log(`📊 音频传输统计: 总帧数=${this.audioStats.totalFramesSent}, 总字节数=${this.audioStats.totalBytesSent}`);
+        }
+
+        handleServerResponse(responseData) {
+            const timestamp = new Date().toLocaleString();
+            
+            try {
+                // 尝试解析JSON
+                const parsedData = JSON.parse(responseData);
+                
+                // 更新服务端响应区域
+                const responseElement = document.createElement('div');
+                responseElement.className = 'response-item';
+                responseElement.innerHTML = `
+                    <div class="response-timestamp">[${timestamp}]</div>
+                    <div class="response-content">${JSON.stringify(parsedData, null, 2)}</div>
+                `;
+                this.serverResponses.prepend(responseElement);
+
+                // 处理转写结果
+                if (parsedData.text) {
+                    const transcriptionArea = this.transcriptionText;
+                    const transcriptElement = document.createElement('div');
+                    transcriptElement.className = parsedData.isFinal ? 'final-text' : 'real-time-text';
+                    transcriptElement.textContent = `[${timestamp}] ${parsedData.text}`;
+                    transcriptionArea.appendChild(transcriptElement);
+                    transcriptionArea.scrollTop = transcriptionArea.scrollHeight;
+                }
+
+            } catch (error) {
+                // 处理非JSON响应
+                const rawResponseElement = document.createElement('div');
+                rawResponseElement.className = 'response-item';
+                rawResponseElement.innerHTML = `
+                    <div class="response-timestamp">[${timestamp}]</div>
+                    <div class="response-content">${responseData}</div>
+                `;
+                this.serverResponses.prepend(rawResponseElement);
+            }
+        }
+
+        clearAll() {
+            this.transcriptionText.innerHTML = '等待开始语音识别...';
+            this.serverResponses.innerHTML = '等待服务端响应...';
+            this.debugInfo.innerHTML = '诊断信息将在此处显示...';
+        }
+
+        // 其他方法保持不变
+    }
+
+    // 页面加载后初始化
+    document.addEventListener('DOMContentLoaded', () => {
+        const recorder = new AudioRecorder({
+            wsUrl: 'ws://localhost:8080/ws/transcribe'
+        });
+    });
+    </script>
+</body>
+</html>
+
