@@ -280,7 +280,7 @@
 
             // WebSocket
             this.websocket = null;
-            this.wsUrl = options.wsUrl || 'wss://10.1.1.80:8080/ws/transcribe';
+            this.wsUrl = options.wsUrl || 'wss://5818-101-44-83-177.ngrok-free.app/ws/transcribe';
 
             // 状态标志
             this.isRecording = false;
@@ -659,11 +659,11 @@
 
         // 其他方法保持不变
     }
-
+        
     // 页面加载后初始化
     document.addEventListener('DOMContentLoaded', () => {
         const recorder = new AudioRecorder({
-            wsUrl: 'wss://10.1.1.80:8080/ws/transcribe'
+            wsUrl: 'wss://5818-101-44-83-177.ngrok-free.app/ws/transcribe'
         });
     });
     </script>
