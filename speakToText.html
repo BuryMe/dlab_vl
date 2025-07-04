@@ -280,7 +280,7 @@
 
             // WebSocket
             this.websocket = null;
-            this.wsUrl = options.wsUrl || 'ws://10.1.1.80:8080/ws/transcribe';
+            this.wsUrl = options.wsUrl || 'wss://10.1.1.80:8080/ws/transcribe';
 
             // 状态标志
             this.isRecording = false;
@@ -663,7 +663,7 @@
     // 页面加载后初始化
     document.addEventListener('DOMContentLoaded', () => {
         const recorder = new AudioRecorder({
-            wsUrl: 'ws://10.1.1.80:8080/ws/transcribe'
+            wsUrl: 'wss://10.1.1.80:8080/ws/transcribe'
         });
     });
     </script>
